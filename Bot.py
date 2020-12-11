@@ -6,7 +6,7 @@ from discord.ext import commands, tasks
 from typing import Dict
 from itertools import cycle
 from Settings import *
-from cogs.waiting_command import back_to_room, check_queue
+from cogs.waiting_command import back_to_room
 
 # TOKEN = "NzgzNzc0MDM1ODYzNDA0NTc1.X8focw.KZCmuIlWQxZpScQfMiQ2F_H_m7w"
 # status = cycle(['status 1', 'status 2'])
@@ -21,6 +21,8 @@ for filename in os.listdir("./cogs"):
 async def on_ready():
     await client.change_presence(status=discord.Status.online, activity=discord.Game('Waiting'))
     print('Bot is ready')
+    # await check_queue.start()
+
 
 
 client.run(TOKEN)

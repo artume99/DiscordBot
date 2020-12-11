@@ -19,18 +19,22 @@ async def back_to_room(member: discord.Member, room: discord.VoiceChannel):
     await member.move_to(room)
 
 
-@tasks.loop(seconds=5)
-async def check_queue():
-    print(queue_to_rooms)
-    for room in queue_to_rooms:
-        if len(room.members) < room.user_limit:
-            if len(queue_to_rooms[room]) > 0:
-                await back_to_room(queue_to_rooms[room].pop(), room)
-
-
 class Waiting(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
+
+    @tasks.loop(seconds=5)
+    async def check_queue(self):
+        print(queue_to_rooms)
+        for room in queue_to_rooms:
+            if len(room.members) < room.user_limit:
+                if len(queue_to_rooms[room]) > 0:
+                    await back_to_room(queue_to_rooms[room].pop(), room)
+
+    @check_queue.before_loop
+    async def before_printer(self):
+        print('waiting...')
+        await self.bot.wait_until_ready()
 
     @commands.Cog.listener()
     async def on_command_error(self, ctx: commands.Context, ex):
@@ -49,6 +53,10 @@ class Waiting(commands.Cog):
         user: discord.Member = ctx.author
         if voice_channel not in queue_to_rooms:
             queue_to_rooms[voice_channel] = []
+        if user in queue_to_rooms[voice_channel]:
+            return
+        self.check_queue.cancel()
+        await self.bot.wait_until_ready()
         queue_to_rooms[voice_channel].append(user)
         msg = discord.Embed(
             colour=discord.Colour.dark_gold()
@@ -58,7 +66,7 @@ class Waiting(commands.Cog):
         msg.set_author(name='Waiting list')
         await ctx.send(embed=msg)
         await user.move_to(room)
-        await check_queue.start()
+        await self.check_queue.start()
 
     @commands.command()
     async def ash(self, ctx):
