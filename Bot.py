@@ -1,20 +1,35 @@
-from typing import List
-import os
+import json
 import discord
-import queue
 from discord.ext import commands, tasks
-from typing import Dict
-from itertools import cycle
 from Settings import *
-from cogs.waiting_command import back_to_room
+from cogs.waiting_command import Waiting_room_txt, Waiting_room_id
+import Utils
 
-# TOKEN = "NzgzNzc0MDM1ODYzNDA0NTc1.X8focw.KZCmuIlWQxZpScQfMiQ2F_H_m7w"
-# status = cycle(['status 1', 'status 2'])
-client = commands.Bot(command_prefix='/')
+
+def get_prefix(client, message):
+    with open("client_settings.json", 'r') as f:
+        servers = json.load(f)
+    return servers[str(message.guild.id)]["prefix"]
+
+
+client = commands.Bot(command_prefix=get_prefix)
 
 for filename in os.listdir("./cogs"):
     if filename.endswith(".py") and filename != "__init__.py":
         client.load_extension(f'cogs.{filename[:-3]}')
+
+
+@client.event
+async def on_guild_join(guild: discord.Guild):
+    with open("client_settings.json", 'r') as f:
+        servers = json.load(f)
+    servers[str(guild.id)] = {}
+    servers[str(guild.id)]["prefix"] = '/'
+    servers[str(guild.id)]["waiting_room_name"] = "waiting-room"
+    servers[str(guild.id)]["waiting_room_id"] = "786287417766182952"
+
+    with open("client_settings.json", 'w') as f:
+        json.dump(servers, f, indent=4)
 
 
 @client.event
@@ -24,8 +39,27 @@ async def on_ready():
     # await check_queue.start()
 
 
+@client.event
+async def on_voice_state_update(member: discord.Member, before: discord.VoiceState, after: discord.VoiceState):
+    # print(member, before, after)
+    waiting_room_name, waiting_room_id = Utils.get_waiting_room_name_and_id(member.guild.id)
+    if after.channel:
+        if after.channel.name == waiting_room_name and before.channel.name != waiting_room_name:
+            channel = client.get_channel(waiting_room_id)
+            with open("client_settings.json", 'r') as f:
+                servers = json.load(f)
+            prefix = servers[str(member.guild.id)]["prefix"]
+            await channel.send("welcome, please select {pre}autojoin or {pre}bymessage, (default is by message) "
+                               "if you need help please ask your admins or read the "
+                               "{pre}help".format(pre=prefix))
+
 
 client.run(TOKEN)
+
+
+"""
+-------------------- EXAMPLES TO USE IN THE FUTURE IF NEEDED -----------------
+
 
 # async def create_channel(guild,channel_name):
 #     category =
@@ -75,3 +109,4 @@ client.run(TOKEN)
 
 # @commends.has_permission()
 # @clear.error
+"""
